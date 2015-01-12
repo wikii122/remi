@@ -1,4 +1,11 @@
 #!/bin/bash
+#
+# Wiktor Ślęczka
+# Anno Domini 2015
+#
+# Revertable file removal with timed garbage collection.
+#
+
 USAGE="
 Remi - simple script used for delayed file removal.\n
 Usage:\n
@@ -21,25 +28,40 @@ fi
 metadir="$HOME/.bin_tmp/"
 metafile="$metadir""metadata"
 
-function garbage_collector {
+function timeout_counter {
 	if [[ -w $metafile ]];
 	then
 		nfile=$(awk 'NF {
 		if ($4 > (systime() - 48*60*60)) {
 				print
 			} else {
-				system("rm '"$metadir"'"$1)
+				system("i=$(cat '$metadir'"$1".ref);i=$((i-1));echo $i > '$metadir'"$1".ref;")
 			}
 		}' $metafile)
 		printf "$nfile" > $metafile
 	fi
 }
 
+function garbage_collector {
+	for x in `ls ${metadir}*.ref` 
+	do
+		if [ ! $x == $metadir"n.ref" ];
+		then
+			i=`cat $x`
+			if [[ $i -le 0 ]];
+			then
+				rm -f $x
+				rm -f ${x:0:-4}
+			fi
+		fi
+	done
+}
+
 OPTION=$1
 
 case $OPTION in
 	"--list")
-		garbage_collector
+		timeout_counter
 		awk -v path=$(readlink -f $PWD) 'BEGIN {
 			print "List of files in current directory currently on index"
 			print "Index\tName\tDeletion Date"
@@ -57,9 +79,10 @@ case $OPTION in
 			}
 		}
 		' $metafile
+		garbage_collector
 		;;
 	"--list-all") echo list-all
-		garbage_collector
+		timeout_counter
 		awk -v path=$(readlink -f $PWD) 'BEGIN {
 			print "List of files in current directory currently on index"
 			print "Index\tName\tDeletion Date\t\tPath"
@@ -74,8 +97,9 @@ case $OPTION in
 				print "No files found."
 			}
 		}' $metafile
+		garbage_collector
 		;;
-	"--revert") 
+	"--revert")
 		if [[ $# -ne 2 ]];
 		then
 			echo -e $USAGE
@@ -87,13 +111,16 @@ case $OPTION in
 			echo "File index does not match"
 			exit 1
 		fi
-		filedata=(`sed "$index"'q;d' $metafile`)
-		tar -xvzf $metadir${filedata[0]}
-		rm $metadir${filedata[0]}
-		new_file=`awk 'NR!~'"${index}" $metafile`
+		filedata=(`awk "NR==$index" $metafile`)
+		tar -xvzf $metadir${filedata[0]} --transform "s!^[^/]\+\($\|/\)!${filedata[1]}\1!"
+		new_file=`awk 'NR!~'"${index}" $metafile`"\n"
 		echo "$new_file" > $metafile
+		i=$(cat ~/.bin_tmp/${filedata[0]}.ref)
+		i=$((i-1))
+		echo "$i" > ~/.bin_tmp/${filedata[0]}.ref
+		timeout_counter
 		garbage_collector
-	;;
+		;;
 	"--help") echo -e $USAGE ;;
 	*)
 		files=$@
@@ -117,8 +144,17 @@ case $OPTION in
 			fi
 			md5=`md5sum $file`
 			tar -cvzf ~/.bin_tmp/$md5
+			if [[ -f ~/.bin_tmp/${md5:0:32}.ref ]];
+			then
+				i=$(cat ~/.bin_tmp/${md5:0:32}.ref)
+				i=$((i+1))
+				echo "$i" > ~/.bin_tmp/${md5:0:32}.ref
+			else
+				echo "1" > ~/.bin_tmp/${md5:0:32}.ref
+			fi
 			rm -rf $file
 			echo "$md5 `dirname $(readlink -f remi.sh)` `date -u +%s`" >> $metafile
+			garbage_collector
 		done
 esac
 
