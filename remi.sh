@@ -38,7 +38,7 @@ function timeout_counter {
 function garbage_collector {
 	for x in `ls ${metadir}*.ref` 
 	do
-		if [ ! $x == $metadir"n.ref" ];
+		if [ ! $x -eq $metadir"n.ref" ];
 		then
 			i=`cat $x`
 			if [[ $i -le 0 ]];
@@ -54,6 +54,11 @@ OPTION=$1
 
 case $OPTION in
 	"--list")
+		if [[ ! -f $metafile ]];
+		then
+			echo "No data on index"
+			exit 1
+		fi
 		timeout_counter
 		awk -v path=$(readlink -f $PWD) 'BEGIN {
 			print "List of files in current directory currently on index"
@@ -75,6 +80,11 @@ case $OPTION in
 		garbage_collector
 		;;
 	"--list-all") echo list-all
+		if [[ ! -f $metafile ]];
+		then
+			echo "No data on index"
+			exit 1
+		fi
 		timeout_counter
 		awk -v path=$(readlink -f $PWD) 'BEGIN {
 			print "List of files in current directory currently on index"
@@ -93,6 +103,11 @@ case $OPTION in
 		garbage_collector
 		;;
 	"--revert")
+		if [[ ! -f $metafile ]];
+		then
+			echo "No data on index"
+			exit 1
+		fi
 		if [[ $# -ne 2 ]];
 		then
 			echo -e $USAGE
