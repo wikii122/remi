@@ -1,11 +1,4 @@
 #!/bin/bash
-#
-# Wiktor Ślęczka
-# Anno Domini 2015
-#
-# Revertable file removal with timed garbage collection.
-#
-
 USAGE="
 Remi - simple script used for delayed file removal.\n
 Usage:\n
@@ -127,10 +120,21 @@ case $OPTION in
 		mkdir -p ~/.bin_tmp
 		for file in $files
 		do
-			if [[ ! -f $file ]];
+			if [[ ! -e $file ]];
 			then
 				echo "$file does not exist"
 				exit 1
+			fi
+			if [[ -d $file ]];
+			then
+				files="$files `find $file`"
+			fi
+		done
+		for file in $files
+		do
+			if [[ -d $file ]];
+			then 
+				continue
 			fi
 			if [[ ! -r $file ]];
 			then
@@ -152,9 +156,12 @@ case $OPTION in
 			else
 				echo "1" > ~/.bin_tmp/${md5:0:32}.ref
 			fi
-			rm -rf $file
-			echo "$md5 `dirname $(readlink -f remi.sh)` `date -u +%s`" >> $metafile
+			echo "$md5 `dirname $(readlink -f remi.sh)` `date -u +%s`\n" >> $metafile
 			garbage_collector
+		done
+		for file in $files
+		do
+			rm -rf $file
 		done
 esac
 
