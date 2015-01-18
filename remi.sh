@@ -28,9 +28,11 @@ function timeout_counter {
 		if ($4 > (systime() - 48*60*60)) {
 				print
 			} else {
-				system("i=$(cat '$metadir'"$1".ref);i=$((i-1));echo $i > '$metadir'"$1".ref;")
+                if ($1 != "n") {
+				    system("i=$(cat '$metadir'"$1".ref 2>/dev/null);i=$((i-1));echo $i > '$metadir'"$1".ref;")
+                }
 			}
-		}' $metafile)
+		}' $metafile) 
 		printf "$nfile" > $metafile
 	fi
 }
@@ -38,7 +40,7 @@ function timeout_counter {
 function garbage_collector {
 	for x in `ls ${metadir}*.ref` 
 	do
-		if [ ! $x -eq $metadir"n.ref" ];
+		if [ ! $x == $metadir".ref" ];
 		then
 			i=`cat $x`
 			if [[ $i -le 0 ]];
@@ -114,7 +116,7 @@ case $OPTION in
 		fi
 		nol=`wc -l < $metafile`
 		index=$2
-		if [[ (! -w $metafile) || (($nol -lt $index)) ]];
+        if [[ (! -w $metafile) || (($nol -lt $index)) || (( $index -le 0 )) ]];
 		then
 			echo "File index does not match"
 			exit 1
